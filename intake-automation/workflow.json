@@ -1,0 +1,494 @@
+{
+  "name": "Automating Operations: AI-Driven Intake Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Je bent een Recruiter.\nInformatie kandidaat:\nNaam: {{ $json['Voor- en achternaam '] }}\nMotivatie: {{ $json['Waarom wil je dit traineeship volgen?  '] }}\nSkills: {{ $json['Ervaring met programmeren (welke talen?)  '] }}\n\nVul het output schema:\n1. 'analysis_recruiter': Een zakelijke samenvatting (bulletpoints) voor in het CRM.\n2. 'email_body_html': Een persoonlijke alinea voor de kandidaat.\nBELANGRIJK VOOR EMAIL:\n- Gebruik <br><br> tags voor witregels (geen \\n).\n- Geen aanhef (\"Hoi...\") en geen afsluiting (\"Groet...\"), alleen de inhoud.\n- Speel in op de motivatie.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "1d4c363b-44e1-496b-9689-ce35566812df",
+      "name": "AI Recruiter & Copywriter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        192,
+        208
+      ],
+      "id": "1af61dc8-9f51-47ea-9523-5ecc2ab891f8",
+      "name": "Gemini 2.5 Flash (Brain)",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Kajv9rdf5VnO0Ibs",
+          "name": "Google Gemini account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"analysis_recruiter\": \"- Indruk: Enthousiaste starter.\\n- Skill: Python.\",\n  \"email_body_html\": \"Leuk dat je solliciteert!<br><br>Je passie viel op.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        368,
+        208
+      ],
+      "id": "f835babd-dec4-45fa-a5f9-860ced7ee912",
+      "name": "Format Data (JSON)"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "IT Traineeship Intake Formulier - n8n DEMO (Antwoorden)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1788666266,
+          "mode": "list",
+          "cachedResultName": "Formulierreacties 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1788666266"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Concept klaar",
+            "AI-Analyse": "={{ $json.output.analysis_recruiter }}",
+            "E-mail adres": "={{ $('Nieuwe inschrijving (Intakeformulier)').item.json['E-mail adres'] }}"
+          },
+          "matchingColumns": [
+            "E-mail adres"
+          ],
+          "schema": [
+            {
+              "id": "Tijdstempel",
+              "displayName": "Tijdstempel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Voor- en achternaam ",
+              "displayName": "Voor- en achternaam ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "E-mail adres",
+              "displayName": "E-mail adres",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telefoonnummer",
+              "displayName": "Telefoonnummer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Huidige opleidingsniveau en richting  ",
+              "displayName": "Huidige opleidingsniveau en richting  ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Relevante (studie)ervaring met IT  ",
+              "displayName": "Relevante (studie)ervaring met IT  ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Waarom wil je dit traineeship volgen?  ",
+              "displayName": "Waarom wil je dit traineeship volgen?  ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Wat zijn je carrièredoelen binnen IT?  ",
+              "displayName": "Wat zijn je carrièredoelen binnen IT?  ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Ervaring met programmeren (welke talen?)  ",
+              "displayName": "Ervaring met programmeren (welke talen?)  ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "IT-concepten (netwerken, databases, etc.) ",
+              "displayName": "IT-concepten (netwerken, databases, etc.) ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Eventuele certificaten of cursussen  ",
+              "displayName": "Eventuele certificaten of cursussen  ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Hoe heb je over ons traineeship gehoord?  ",
+              "displayName": "Hoe heb je over ons traineeship gehoord?  ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Aanvullende opmerkingen of vragen  ",
+              "displayName": "Aanvullende opmerkingen of vragen  ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "AI-Analyse",
+              "displayName": "AI-Analyse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        576,
+        0
+      ],
+      "id": "74e1998a-e096-4afb-963a-cd7ad9993c88",
+      "name": "Update CRM / Database",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PSF1eHsn1QlMuc9b",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "Welkom bij IT Professionals!",
+        "emailType": "html",
+        "message": "={{\n\"Hoi \" + $('Nieuwe inschrijving (Intakeformulier)').item.json['Voor- en achternaam'] + \",<br><br>\" +\n\n\"Bedankt voor je aanmelding! We hebben je gegevens goed ontvangen.<br><br>\" +\n\n$('AI Recruiter & Copywriter').item.json.output.email_body_html + \"<br><br>\" +\n\n\"Ons team kijkt deze week naar je profiel.<br><br>\" +\n\n\"Groetjes,<br><br>\" +\n\n\"IT Professionals\"\n}}",
+        "options": {
+          "sendTo": "={{ $('Nieuwe inschrijving (Intakeformulier)').item.json['E-mail adres'] }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        800,
+        0
+      ],
+      "id": "34e3c3dc-e825-4979-a4c9-6df487d84b9c",
+      "name": "Concept mail aanmaken",
+      "webhookId": "fd7e5ddd-aae0-4345-b608-e1521e255fe0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HLaCutU33jtQqOAG",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "list",
+          "cachedResultName": "nieuwe-trainees"
+        },
+        "text": "={{\n\"🚀 *Nieuwe IT Traineeship Aanmelding!*\\n\\n\" +\n\n\"👤 *Naam:* \" + $('Nieuwe inschrijving (Intakeformulier)').item.json['Voor- en achternaam'] + \"\\n\" +\n\n\"💻 *Ervaring:* \" + $('Nieuwe inschrijving (Intakeformulier)').item.json['Ervaring met programmeren (welke talen?)  '] + \"\\n\" +\n\n\"🤖 *AI Analyse:*\\n\" + $('AI Recruiter & Copywriter').item.json.output.analysis_recruiter + \"\\n\\n\" +\n\n\"✅ Conceptmail staat klaar in Gmail.\"\n}}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "56a9962f-ab91-4f66-9381-f10be3a4c37f",
+      "name": "Slack notificatie team",
+      "webhookId": "115117a4-4f67-4870-8d70-6e9656d13058",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "GQBPu11Dn70U6Fe9",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 1. Input phase\n\nTrainee vult Google Form in. Gegevens worden in een spreadsheet verzameld (trigger). Data wordt real-time opgehaald.",
+        "height": 192,
+        "width": 208,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        -224
+      ],
+      "id": "0f069993-c919-4d01-8df8-4fb4a7b2f65e",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "##  2. Intelligence Phase\nAI analyseert profiel voor interne database en schrijft gepersonaliseerde content voor de kandidaat.",
+        "height": 192,
+        "width": 304,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        208,
+        -224
+      ],
+      "id": "2629ccd7-c930-411c-9a48-1ee11118eff8",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## 3. Action & Human-in-the-loop\nDatabase update, team notificatie en conceptmail klaarzetten voor review.",
+        "height": 192,
+        "width": 560,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        576,
+        -224
+      ],
+      "id": "f4287e06-96a4-420c-9cc4-be979bb6f1b3",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 1
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "IT Traineeship Intake Formulier - n8n DEMO (Antwoorden)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1788666266,
+          "mode": "list",
+          "cachedResultName": "Formulierreacties 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1788666266"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        0
+      ],
+      "id": "0974f84f-771a-411e-b06d-36ae4d86811e",
+      "name": "Nieuwe inschrijving (Intakeformulier)",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "M6m5DIxSD1fFuSTM",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Recruiter & Copywriter": {
+      "main": [
+        [
+          {
+            "node": "Update CRM / Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash (Brain)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Recruiter & Copywriter",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Data (JSON)": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Recruiter & Copywriter",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update CRM / Database": {
+      "main": [
+        [
+          {
+            "node": "Concept mail aanmaken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Concept mail aanmaken": {
+      "main": [
+        [
+          {
+            "node": "Slack notificatie team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nieuwe inschrijving (Intakeformulier)": {
+      "main": [
+        [
+          {
+            "node": "AI Recruiter & Copywriter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "lsahVPYE4GsMiTpM"
+  },
+  "versionId": "998d849f-e6b8-40ec-a25a-13d588dfafc4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "id": "Lam3Q8i2b92gOPD4",
+  "tags": []
+}
