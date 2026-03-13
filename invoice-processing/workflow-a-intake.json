@@ -1,0 +1,1636 @@
+{
+  "name": "Invoice Processing v1 - Workflow A",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -2080,
+        -1616
+      ],
+      "id": "397f14e0-c090-4568-89b6-4b16ff3f47f7",
+      "name": "⏱️ Start: Elke dag 09:00",
+      "notes": "Batch verwerking start hier."
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 5,
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "INBOX"
+          ],
+          "q": "label:INBOX has:attachment -category:promotions -category:social is:unread"
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1856,
+        -1616
+      ],
+      "id": "d5243fe9-70bc-4436-a644-9863c0128e71",
+      "name": "📧 Fetch Unread Invoices",
+      "webhookId": "736348d8-965a-44a2-b305-9f4ae40eb968",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HLaCutU33jtQqOAG",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Pakt max 50 ongelezen mails met bijlage."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ba43ae4a-5eef-4424-b764-d9b844cccf13",
+              "leftValue": "={{ $binary.attachment_0.fileExtension }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "cd810ea3-0c3a-40d9-b18e-2a2c9f06fb61",
+              "leftValue": "={{ $binary.attachment_0.fileExtension }}",
+              "rightValue": "jpg",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "ef6d377f-5bc1-4eb8-baee-40ed31c00a70",
+              "leftValue": "={{ $binary.attachment_0.fileExtension }}",
+              "rightValue": "png",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1632,
+        -1616
+      ],
+      "id": "b30260ea-39bd-4ffd-8fc1-0912259fad07",
+      "name": "📂 Check: Is PDF/Image?",
+      "notes": "Filtert logo's en onzin-bestanden eruit."
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1344,
+        -1632
+      ],
+      "id": "c10bc124-528c-49a3-a9c7-28a7720294c0",
+      "name": "🔄 Loop: Process 1-by-1",
+      "notes": "Verwerkt facturen één voor één om fouten te voorkomen."
+    },
+    {
+      "parameters": {
+        "jsCode": "// We weten in welke ronde van de loop we zitten (0, 1, 2...)\nconst index = $runIndex;\n\n// We grijpen terug naar de 'If' node, want die had de PDF nog wel!\nconst originalItem = $('📂 Check: Is PDF/Image?').all()[index];\n\n// Maak het unieke ID\nconst invoiceId = `${originalItem.json.id || 'msg'}-${Date.now()}`;\n\n// Geef de data terug, INCLUSIEF de geredde PDF (binary)\nreturn [\n  {\n    json: {\n      ...originalItem.json,\n      invoiceId\n    },\n    binary: originalItem.binary \n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1072,
+        -1616
+      ],
+      "id": "efa0c417-2cba-4d8a-81ec-43cdc9344c27",
+      "name": "🆔 Set Context & Binary",
+      "notes": "Maakt uniek ID aan en redt de PDF (binary) uit de loop."
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "attachment_0",
+        "name": "={{ $binary.attachment_0.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "Invoice Processing - n8n workflow",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_GOOGLE_DRIVE_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -608,
+        -1744
+      ],
+      "id": "cf4a575e-651c-4070-b905-913ba515768b",
+      "name": "☁️ Google Drive: Backup",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "flxYljNfVW278cvR",
+          "name": "Google Drive account"
+        }
+      },
+      "notes": "Uploadt bestand en maakt publieke link."
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Hier is de afbeelding van de factuur. Analyseer deze volgens de systeeminstructies.",
+        "options": {
+          "systemMessage": "Je bent een senior AI-boekhouder en expert in OCR (Optical Character Recognition).\nJouw enige taak is het extraheren van data uit factuurafbeeldingen.\n\nCRUCIALE INSTRUCTIES:\n1. Negeer watermerken zoals 'VOORBEELD', 'COPY', 'SAMPLE' of 'CONCEPT' die dwars door de tekst staan. Lees de tekst die erachter staat.\n2. Geef het antwoord UITSLUITEND als valide JSON. Geen markdown, geen ```json``` haakjes, geen introductie. Alleen de ruwe JSON.\n3. Als een veld niet gevonden wordt, gebruik de waarde null (zonder aanhalingstekens).\n\nTE EXTRAHEREN VELDEN:\n- leverancier (string): De officiële juridische naam.\n  REGEL: Kijk eerst naar de tekst bij het KvK-nummer of in de voettekst.\n  REGEL: Negeer generieke logo's zoals 'Company Name' of 'Logo' als er een specifiekere naam in de adresgegevens staat.\n- factuurdatum (string): Formaat YYYY-MM-DD.\n- totaalbedrag (number): Het eindbedrag INCLUSIEF BTW. Gebruik een punt (.) voor decimalen. Geen valuta-tekens.\n- btw_bedrag (number): Het totale BTW bedrag.\n- factuurnummer (string): Het kenmerk van de factuur.\n- valuta (string): Bijv. 'EUR', 'USD'.\n\nFOUTAFHANDELING:\n- Als het totaalbedrag niet leesbaar is door het watermerk, gok niet. Geef null.",
+          "passthroughBinaryImages": true,
+          "batching": {}
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -800,
+        -1488
+      ],
+      "id": "8ef018bc-291a-4792-ab3e-b87a5f5b17cd",
+      "name": "🤖 AI: Extract Data",
+      "onError": "continueRegularOutput",
+      "notes": "Analyseert de factuur en haalt JSON data op."
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Haal ID op (met fallback)\nlet invoiceId = \"MISSING_ID\";\ntry {\n    invoiceId = $('🆔 Set Context & Binary').item.json.invoiceId;\n} catch (e) {\n    invoiceId = $json.invoiceId || \"UNKNOWN_ID\";\n}\n\n// 2. Veilig de AI output ophalen\nconst aiOutput = $input.item.json.output || $input.item.json.text || $input.item.json.response || \"\";\n\nlet data = null;\nlet parseStatus = \"OK\";\n\ntry {\n  // Schoonmaken van Markdown\n  let clean = aiOutput.toString()\n    .replace(/^```json\\s*/i, \"\")\n    .replace(/^```\\s*/i, \"\")\n    .replace(/```$/i, \"\")\n    .trim();\n\n  data = JSON.parse(clean);\n} catch (e) {\n  // Parsen mislukt\n  data = null;\n}\n\n// --- DE FIX: Check of data wel een object is ---\n// Als JSON.parse 'null' teruggaf, of als het mislukte, vullen we de nood-data in.\nif (!data || typeof data !== 'object') {\n    parseStatus = \"AI_PARSE_ERROR\";\n    data = {\n        leverancier: \"⚠️ Fout bij AI\",\n        factuurdatum: null,\n        totaalbedrag: 0,\n        btw_bedrag: 0,\n        factuurnummer: \"Zie PDF\",\n        valuta: \"EUR\"\n    };\n}\n\n// 3. Normaliseren (String \"null\" naar echte null)\n// Nu kunnen we veilig loopen, want 'data' is gegarandeerd een object\nfor (const key of Object.keys(data)) {\n  if (data[key] === \"null\") data[key] = null;\n}\n\n// 4. Data validatie & Types\nconst leverancier = (typeof data.leverancier === \"string\" && data.leverancier.trim()) \n    ? data.leverancier.trim() \n    : \"Onbekend\";\n\nlet totaalbedrag = data.totaalbedrag;\nif (typeof totaalbedrag === 'string') {\n    totaalbedrag = parseFloat(totaalbedrag.replace(',', '.'));\n}\nif (!totaalbedrag || isNaN(totaalbedrag)) {\n    totaalbedrag = 0;\n}\n\n// 5. Output\nreturn [\n  {\n    json: {\n      invoiceId: invoiceId,\n      ai_parse_status: parseStatus,\n      ai_raw_debug: aiOutput, \n      leverancier: leverancier,\n      factuurdatum: data.factuurdatum || null,\n      totaalbedrag: totaalbedrag,\n      btw_bedrag: data.btw_bedrag || 0,\n      factuurnummer: data.factuurnummer || \"Zie PDF\",\n      valuta: data.valuta || \"EUR\"\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        -1488
+      ],
+      "id": "b414f77e-2ce9-41ed-99c3-8ce5338beb69",
+      "name": "🧹 Code: Normalize & Clean",
+      "notes": "Repareert fouten, null-waardes en formatteert bedragen."
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -224,
+        -1616
+      ],
+      "id": "4df342f6-2149-437b-b9e1-16a76d3d4fd0",
+      "name": "🔗 Merge: Data + Link",
+      "notes": "Voegt de AI-data samen met de Google Drive link."
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Invoice Processing v1 - n8n workflow",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_INVOICES_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Leveranciers",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID/YOUR_AIRTABLE_INVOICES_TABLE_ID"
+        },
+        "filterByFormula": "={Naam} = '{{ $json.leverancier }}'",
+        "returnAll": false,
+        "limit": 1,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -1616
+      ],
+      "id": "fa47d8d4-1e7f-4dd4-a97a-0cdd5e9155c9",
+      "name": "🔎 Airtable: Find Vendor",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "0ymdfpXXdG3JLR2n",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "notes": "Zoekt of leverancier al bestaat in database."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3b9e045a-eebd-4cca-8b82-d24d4628c302",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        -1616
+      ],
+      "id": "c0b3fbad-ff9a-4aca-bb10-b9866cd5f06c",
+      "name": "❓ Check: Vendor Found?",
+      "notes": "True = Bestaat al, False = Nieuw."
+    },
+    {
+      "parameters": {
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        -1744
+      ],
+      "id": "464e6c09-f1f9-4d44-b6e0-4734ed5d0fbd",
+      "name": "⏩ Pass Existing Vendor",
+      "notes": "Dummy stap om data door te geven (Bypass)."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Invoice Processing v1 - n8n workflow",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_INVOICES_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Leveranciers",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID/YOUR_AIRTABLE_INVOICES_TABLE_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Naam": "={{ $('🧹 Code: Normalize & Clean').item.json.leverancier }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Naam",
+              "displayName": "Naam",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Totaal Uitgegeven",
+              "displayName": "Totaal Uitgegeven",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Aantal Facturen",
+              "displayName": "Aantal Facturen",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Facturen",
+              "displayName": "Facturen",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        448,
+        -1504
+      ],
+      "id": "72ee1678-0043-45c9-b3eb-bf390f4c4b8c",
+      "name": "🆕 Airtable: Create Vendor",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "0ymdfpXXdG3JLR2n",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "notes": "Maakt nieuwe leverancier aan als hij niet bestaat."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Invoice Processing v1 - n8n workflow",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_VENDORS_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Facturen",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID/YOUR_AIRTABLE_VENDORS_TABLE_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Factuurnummer": "={{ $('🧹 Code: Normalize & Clean').item.json.factuurnummer }}",
+            "Datum": "={{ $('🧹 Code: Normalize & Clean').item.json.factuurdatum }}",
+            "Bedrag": "={{ $('🧹 Code: Normalize & Clean').item.json.totaalbedrag }}",
+            "Status": "Review",
+            "PDF Link": "={{ $('☁️ Google Drive: Backup').item.json.webViewLink }}",
+            "Leverancier": "={{ [ $('🔗 Merge: Vendor Flow').item.json.id ] }}",
+            "BTW": "={{ $('🧹 Code: Normalize & Clean').item.json.btw_bedrag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Factuurnummer",
+              "displayName": "Factuurnummer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Leverancier",
+              "displayName": "Leverancier",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Naam (from Leverancier)",
+              "displayName": "Naam (from Leverancier)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Bedrag",
+              "displayName": "Bedrag",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "BTW",
+              "displayName": "BTW",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "PDF Link",
+              "displayName": "PDF Link",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Review",
+                  "value": "Review"
+                },
+                {
+                  "name": "Approved",
+                  "value": "Approved"
+                },
+                {
+                  "name": "Processed",
+                  "value": "Processed"
+                },
+                {
+                  "name": "Duplicate",
+                  "value": "Duplicate"
+                },
+                {
+                  "name": "Rejected",
+                  "value": "Rejected"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Laatst Gewijzigd",
+              "displayName": "Laatst Gewijzigd",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1344,
+        -1728
+      ],
+      "id": "48f46ae4-95ad-4a9e-9fe9-018fcedc7e74",
+      "name": "📝 Airtable: Create Invoice",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "0ymdfpXXdG3JLR2n",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Slaat de factuur op met status 'Review'."
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1568,
+        -1728
+      ],
+      "id": "076b2bc7-33ba-4474-9fa1-2163360db4f4",
+      "name": "⏳ Wait (2s)",
+      "webhookId": "a73ecfb8-0b6e-486e-975a-4edbc3e883ed",
+      "notes": "Wacht tot Airtable de lookups berekend heeft."
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Invoice Processing v1 - n8n workflow",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_VENDORS_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Facturen",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID/YOUR_AIRTABLE_VENDORS_TABLE_ID"
+        },
+        "id": "={{ $json.id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1792,
+        -1728
+      ],
+      "id": "1a3cae8d-7d8e-401c-bc72-299d02898b1d",
+      "name": "📥 Airtable: Get Full Data",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "0ymdfpXXdG3JLR2n",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "notes": "Haalt het complete record op (incl. Leveranciersnaam)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fc66415a-7fa5-49da-83e0-69e828f59dac",
+              "leftValue": "={{ $('🧹 Code: Normalize & Clean').item.json.totaalbedrag }}",
+              "rightValue": 100,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            },
+            {
+              "id": "99503698-b72a-4122-8aa1-377b51f470ed",
+              "leftValue": "={{ $('🧹 Code: Normalize & Clean').item.json.totaalbedrag }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2032,
+        -1728
+      ],
+      "id": "3e53991e-3d62-4bde-b904-12599143f86c",
+      "name": "⚖️ Check: < €100?",
+      "notes": "Logica: Bedrag > 0 EN Bedrag < 100."
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. We halen de data direct bij de BRON (niet wachten op Airtable)\n\n// De link halen we op bij de Google Drive node\n// (Zorg dat de node naam exact '☁️ Google Drive: Backup' is, zoals in je screenshot)\nconst driveLink = $('☁️ Google Drive: Backup').item.json.webViewLink || \"https://google.com\";\n\n// De bedragen en naam halen we op bij de AI Code node\nconst aiData = $('🧹 Code: Normalize & Clean').item.json;\nconst bedrag = aiData.totaalbedrag || 0;\nconst leverancier = aiData.leverancier || \"Onbekend\";\n\n// Het ID hebben we wel uit de huidige stap nodig (want dat is het ID van de nieuwe rij)\nconst recordId = $json.id || \"error_id\";\n\n// 2. Bouw de blokken\nconst slackBlocks = [\n  {\n    \"type\": \"section\",\n    \"text\": {\n      \"type\": \"mrkdwn\",\n      // Hier staat nu 'Bekijk factuur' en de variabelen komen direct van de bron\n      \"text\": `*💰 Nieuwe Factuur: € ${bedrag}*\\nLeverancier: ${leverancier}\\n<${driveLink}|Bekijk factuur>`\n    }\n  },\n  {\n    \"type\": \"actions\",\n    \"elements\": [\n      {\n        \"type\": \"button\",\n        \"text\": {\n          \"type\": \"plain_text\",\n          \"text\": \"✅ Goedkeuren\"\n        },\n        \"style\": \"primary\",\n        \"value\": `approve__${recordId}`,\n        \"action_id\": \"approve_invoice\"\n      },\n      {\n        \"type\": \"button\",\n        \"text\": {\n          \"type\": \"plain_text\",\n          \"text\": \"❌ Afwijzen\"\n        },\n        \"style\": \"danger\",\n        \"value\": `reject__${recordId}`,\n        \"action_id\": \"reject_invoice\"\n      }\n    ]\n  }\n];\n\n// 3. Return het resultaat\nreturn [\n  {\n    json: {\n      slack_blocks: slackBlocks\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        -1504
+      ],
+      "id": "eecc20ae-3dd9-424e-80cd-8b75d2a8be34",
+      "name": "🏗️ Code: Build Slack Blocks",
+      "notes": "Maakt de veilige JSON code voor de knoppen."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"channel\": \"YOUR_SLACK_CHANNEL_ID\",\n  \"text\": \"Nieuwe factuur ter goedkeuring\",\n  \"blocks\": $json.slack_blocks\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2688,
+        -1504
+      ],
+      "id": "36f93ac4-3605-4998-8575-eece5a87bb24",
+      "name": "💬 Slack: Send Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "6SeWBAru4K2A5oua",
+          "name": "Header Auth account"
+        },
+        "slackApi": {
+          "id": "sp1mu7sxB66kf5rh",
+          "name": "Slack Bot"
+        }
+      },
+      "notes": "Stuurt het bericht met knoppen naar Finance."
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        672,
+        -1616
+      ],
+      "id": "c2f425f0-6e5a-4ac3-94e6-2a118aad8dc7",
+      "name": "🔗 Merge: Vendor Flow",
+      "notes": "Voegt bestaande en nieuwe leveranciersroutes samen."
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Invoice Processing v1 - n8n workflow",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_VENDORS_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Facturen",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID/YOUR_AIRTABLE_VENDORS_TABLE_ID"
+        },
+        "filterByFormula": "=AND( {Factuurnummer} = '{{ $('🧹 Code: Normalize & Clean').item.json.factuurnummer }}', {Naam (from Leverancier)} = '{{ $('🧹 Code: Normalize & Clean').item.json.leverancier }}' )",
+        "returnAll": false,
+        "limit": 1,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        896,
+        -1616
+      ],
+      "id": "a720caa9-8dfe-4b45-aed5-7e8acbb5d09e",
+      "name": "👮‍♀️ Airtable: Check Duplicate",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "0ymdfpXXdG3JLR2n",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "notes": "Zoekt in de database of de combinatie [Factuurnummer + Leverancier] al bestaat."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4595d11c-04d1-4f6a-992d-7fe48797f2bf",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1120,
+        -1616
+      ],
+      "id": "9b549046-c241-4473-8f13-100d6792017c",
+      "name": "❓ Is Duplicate?",
+      "notes": "True = Nieuwe factuur (ID is leeg). False = Duplicaat (ID gevonden)."
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "list",
+          "cachedResultName": "finance"
+        },
+        "text": "=⚠️ *Duplicaat gevonden en genegeerd!*\n\n🏢 Leverancier: {{ $('🧹 Code: Normalize & Clean').item.json.leverancier }}\n📄 Factuurnummer: {{ $('🧹 Code: Normalize & Clean').item.json.factuurnummer }}\n\n👉 <{{ $('☁️ Google Drive: Backup').item.json.webViewLink }}|Klik hier om de factuur te bekijken>",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        2912,
+        -1328
+      ],
+      "id": "f81acafb-0cc8-4e2d-98c4-e4530cbe9cd9",
+      "name": "🚫 Slack: Duplicate Alert",
+      "webhookId": "d929afce-603b-4bdb-aaa4-549694d604be",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "GQBPu11Dn70U6Fe9",
+          "name": "Slack account"
+        }
+      },
+      "notes": "Stuurt een waarschuwing naar het Finance-kanaal en stopt het proces voor deze factuur."
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('📧 Fetch Unread Invoices').item.json.id }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3136,
+        -1616
+      ],
+      "id": "05269811-15dd-4ead-891f-dcf7453f271f",
+      "name": "📭 Gmail: Mark as Read",
+      "webhookId": "4d7cf8be-2c7f-44ee-8e5c-5f639a950a98",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HLaCutU33jtQqOAG",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Markeert de mail als gelezen zodat de trigger hem niet opnieuw oppakt."
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -800,
+        -1216
+      ],
+      "id": "3d592ea6-1d49-4512-b553-f6e47b4517ec",
+      "name": "🧠 Model: GPT-4o",
+      "credentials": {
+        "openAiApi": {
+          "id": "RfG4k28yYG0T5NQr",
+          "name": "OpenAi account"
+        }
+      },
+      "notes": "Het brein achter de agent."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://moneybird.com/api/v2/YOUR_MONEYBIRD_ADMINISTRATION_ID/documents/purchase_invoices",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2464,
+        -1744
+      ],
+      "id": "eb06b842-b281-46bf-a8f4-d5213a4cb2e7",
+      "name": "🐦 API: Create Invoice",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IpBaMsvCLYp5HQlt",
+          "name": "Moneybird - Sandbox invoicing"
+        }
+      },
+      "notes": "Verstuurt de inkoopfactuur via een POST request naar de Moneybird API."
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Invoice Processing v1 - n8n workflow",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_VENDORS_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Facturen",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID/YOUR_AIRTABLE_VENDORS_TABLE_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Processed",
+            "id": "={{ $('📥 Airtable: Get Full Data').item.json.id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Factuurnummer",
+              "displayName": "Factuurnummer",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Leverancier",
+              "displayName": "Leverancier",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Naam (from Leverancier)",
+              "displayName": "Naam (from Leverancier)",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Bedrag",
+              "displayName": "Bedrag",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "PDF Link",
+              "displayName": "PDF Link",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Review",
+                  "value": "Review"
+                },
+                {
+                  "name": "Approved",
+                  "value": "Approved"
+                },
+                {
+                  "name": "Processed",
+                  "value": "Processed"
+                },
+                {
+                  "name": "Duplicate",
+                  "value": "Duplicate"
+                },
+                {
+                  "name": "Rejected",
+                  "value": "Rejected"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Laatst Gewijzigd",
+              "displayName": "Laatst Gewijzigd",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2688,
+        -1744
+      ],
+      "id": "91b49bfc-4f7b-4c10-9fe3-70e9f57a71b1",
+      "name": "🏁 Airtable: Set Processed",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "0ymdfpXXdG3JLR2n",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "notes": "Zet de status op 'Processed' om aan te geven dat de export naar boekhouding geslaagd is."
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.item.json;\n\n// Haal bedrag en BTW op\nlet totaalBedrag = parseFloat(data.Bedrag) || 0;\nlet btwBedrag = parseFloat(data.BTW) || 0;\n\n// Bereken het bedrag EXCLUSIEF BTW\nlet bedragExclBtw = (totaalBedrag - btwBedrag).toFixed(2);\n\n// Datum formatteren\nconst datum = data.Datum || new Date().toISOString().split('T')[0];\n\n// Leveranciersnaam\nconst naam = (data['Naam (from Leverancier)'] && data['Naam (from Leverancier)'][0]) || 'Onbekend';\n\n// Factuurnummer\nconst factuurnummer = data.Factuurnummer || 'Geen kenmerk';\n\n// De volledige body zoals Moneybird die wil\nconst body = {\n  purchase_invoice: {\n    contact_id: \"475440760197481862\", // Let op: deze staat nu hardcoded\n    reference: factuurnummer,\n    date: datum,\n    details_attributes: [\n      {\n        description: `Factuur van ${naam}`,\n        price: bedragExclBtw,\n        tax_rate_id: \"475257263575008816\"\n      }\n    ]\n  }\n};\n\n// n8n verwacht een array van objecten met een 'json' sleutel\nreturn [{ json: body }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2256,
+        -1744
+      ],
+      "id": "fc8a927c-1fb7-4197-a87a-ace2fc019496",
+      "name": "⚙️ Code: Format for Moneybird",
+      "notes": "Berekent het bedrag exclusief BTW en formatteert de datum voor de Moneybird API."
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('📧 Fetch Unread Invoices').item.json.id }}",
+        "labelIds": [
+          "Label_6249440218331868437"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3344,
+        -1616
+      ],
+      "id": "64d07867-596c-4b1e-96a1-33d5b613c56e",
+      "name": "🏷️ Gmail: Add 'Processed'",
+      "webhookId": "dbaa86be-6c8c-4b10-a4dd-c847c1227cba",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HLaCutU33jtQqOAG",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Voegt het label 'PROCESSED' toe voor het archief."
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $('📧 Fetch Unread Invoices').item.json.id }}",
+        "labelIds": [
+          "INBOX"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3552,
+        -1616
+      ],
+      "id": "5a89386c-ec3b-4244-8c65-69802f53ae09",
+      "name": "📥 Gmail: Archive (Remove Inbox)",
+      "webhookId": "ab04777d-21ee-4502-975a-c82f61a2ef19",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HLaCutU33jtQqOAG",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Verwijdert het label 'INBOX' zodat de mail uit de inbox verdwijnt."
+    },
+    {
+      "parameters": {
+        "content": "## 📧 1. INTAKE & PREPARATION\n\n## Start & Filter:\nElke ochtend (09:00) wordt de inbox gescand op ongelezen mails met bijlagen. Bestanden worden gefilterd (alleen PDF/Afbeelding) en klaargezet om één voor één verwerkt te worden via de Loop.",
+        "height": 912,
+        "width": 1238,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2128,
+        -1984
+      ],
+      "id": "e7a499b0-305c-419c-b4a3-dc77182540a0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## 🧠 2. AI EXTRACTION & ENRICHMENT\n\n## Digitaliseren:\nDe factuur wordt geüpload naar Google Drive voor een permanente link. Tegelijkertijd analyseert GPT-4o (Vision) het document om gegevens zoals Bedrag, Datum en Leverancier uit te lezen. De Code-node schoont deze data op en repareert fouten.",
+        "height": 912,
+        "width": 816,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        -1984
+      ],
+      "id": "ca436311-2f4f-4457-810b-e9ae785741e6",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## 🗂️ 3. DATABASE LOGIC (VENDORS & DUPLICATES)\n\n## Validatie & Opslag:\nHet systeem controleert of de leverancier al bestaat (en maakt deze zo nodig aan). Daarna vindt een cruciale check op duplicaten plaats om dubbele betalingen te voorkomen. Als de factuur uniek is, wordt deze aangemaakt in Airtable.\n",
+        "height": 912,
+        "width": 2032
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        -1984
+      ],
+      "id": "ae8dd6b7-b898-4574-9629-04cd22c90819",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## 🚦 4. BUSINESS RULES & EXPORT\n\n## De Beslisboom:\nHier wordt bepaald wat er met de factuur gebeurt:\n* < €100: Directe goedkeuring -> Export naar Moneybird -> Status op 'Processed'.\n* > €100 (of twijfel): Menselijke controle vereist -> Stuurt interactief bericht naar Slack.",
+        "height": 912,
+        "width": 880,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1968,
+        -1984
+      ],
+      "id": "ce7b0811-1bef-4740-8a23-deef132589f7",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## 🧹 5. CLEANUP & NOTIFICATIONS\n\n## Afronding:\nVerstuurt waarschuwingen bij duplicaten. Aan het einde van elke cyclus wordt de originele e-mail gemarkeerd als 'Gelezen' en verplaatst naar het archief, zodat deze niet opnieuw wordt verwerkt.",
+        "height": 912,
+        "width": 960,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2848,
+        -1984
+      ],
+      "id": "db909ab7-efb7-4aa8-93bb-576d5e2c4a66",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## \"V1 Handleiding\" voor de klant (of jezelf)\n\n## Op basis van de \"Known Limitations\" zijn er nu 3 simpele gebruiksregels voor dit systeem:\n\n* ## Eén factuur per mail. (Stuur je er twee? Dan wordt de tweede genegeerd. Oplossing: Stuur hem even opnieuw).\n\n* ## Moneybird Contact: De factuur komt binnen op \"Diversen\". Even openen, juiste contact aanklikken, opslaan. (Kleine moeite, groot plezier).\n\n* ## Nieuwe namen: Als de AI een naam nét anders schrijft, maakt hij een nieuwe aan. Even in de gaten houden en samenvoegen in Airtable indien nodig.",
+        "height": 496,
+        "width": 1152,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        816,
+        -1024
+      ],
+      "id": "e6a20906-4cdf-49ad-8651-1ee552764ea8",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "## Known Limitations V1 – Voor later (V2 upgrades)\n\n## Bekende beperkingen die we bewust accepteren voor Versie 1.0:\n\n* ## Enkele bijlage: Verwerkt alleen de eerste bijlage (attachment_0). Meerdere facturen in één mail → tweede wordt genegeerd. (Workaround: één factuur per mail sturen.)\n\n* ## Moneybird hardcoded: Altijd naar contact “Diversen” en vaste BTW-rate. (Workaround: handmatig aanpassen in Moneybird na import.)\n\n* ## Leverancier matching: Exacte match op naam (incl. LOWER() voor hoofdletters). Kleine variaties (B.V. vs BV, spaties) → nieuwe leverancier aangemaakt. (Workaround: later samenvoegen in Airtable.)",
+        "height": 496,
+        "width": 1200,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -576,
+        -1024
+      ],
+      "id": "14fa81d1-3807-4a28-8485-be4490327411",
+      "name": "Sticky Note6"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "⏱️ Start: Elke dag 09:00": {
+      "main": [
+        [
+          {
+            "node": "📧 Fetch Unread Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📧 Fetch Unread Invoices": {
+      "main": [
+        [
+          {
+            "node": "📂 Check: Is PDF/Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📂 Check: Is PDF/Image?": {
+      "main": [
+        [
+          {
+            "node": "🔄 Loop: Process 1-by-1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Loop: Process 1-by-1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "🔄 Loop: Process 1-by-1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🆔 Set Context & Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆔 Set Context & Binary": {
+      "main": [
+        [
+          {
+            "node": "☁️ Google Drive: Backup",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🤖 AI: Extract Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "☁️ Google Drive: Backup": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge: Data + Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI: Extract Data": {
+      "main": [
+        [
+          {
+            "node": "🧹 Code: Normalize & Clean",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧹 Code: Normalize & Clean": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge: Data + Link",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "🔗 Merge: Data + Link": {
+      "main": [
+        [
+          {
+            "node": "🔎 Airtable: Find Vendor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔎 Airtable: Find Vendor": {
+      "main": [
+        [
+          {
+            "node": "❓ Check: Vendor Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Check: Vendor Found?": {
+      "main": [
+        [
+          {
+            "node": "⏩ Pass Existing Vendor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🆕 Airtable: Create Vendor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏩ Pass Existing Vendor": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge: Vendor Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆕 Airtable: Create Vendor": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge: Vendor Flow",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "📝 Airtable: Create Invoice": {
+      "main": [
+        [
+          {
+            "node": "⏳ Wait (2s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏳ Wait (2s)": {
+      "main": [
+        [
+          {
+            "node": "📥 Airtable: Get Full Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📥 Airtable: Get Full Data": {
+      "main": [
+        [
+          {
+            "node": "⚖️ Check: < €100?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚖️ Check: < €100?": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Code: Format for Moneybird",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🏗️ Code: Build Slack Blocks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🏗️ Code: Build Slack Blocks": {
+      "main": [
+        [
+          {
+            "node": "💬 Slack: Send Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Merge: Vendor Flow": {
+      "main": [
+        [
+          {
+            "node": "👮‍♀️ Airtable: Check Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "👮‍♀️ Airtable: Check Duplicate": {
+      "main": [
+        [
+          {
+            "node": "❓ Is Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Is Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "📝 Airtable: Create Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🚫 Slack: Duplicate Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 Slack: Send Request": {
+      "main": [
+        [
+          {
+            "node": "📭 Gmail: Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚫 Slack: Duplicate Alert": {
+      "main": [
+        [
+          {
+            "node": "📭 Gmail: Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📭 Gmail: Mark as Read": {
+      "main": [
+        [
+          {
+            "node": "🏷️ Gmail: Add 'Processed'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧠 Model: GPT-4o": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "🤖 AI: Extract Data",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🐦 API: Create Invoice": {
+      "main": [
+        [
+          {
+            "node": "🏁 Airtable: Set Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Code: Format for Moneybird": {
+      "main": [
+        [
+          {
+            "node": "🐦 API: Create Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🏁 Airtable: Set Processed": {
+      "main": [
+        [
+          {
+            "node": "📭 Gmail: Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🏷️ Gmail: Add 'Processed'": {
+      "main": [
+        [
+          {
+            "node": "📥 Gmail: Archive (Remove Inbox)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "lsahVPYE4GsMiTpM"
+  },
+  "versionId": "7289e073-fb9f-4f42-afbd-d50bc2900b44",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "id": "jsA27XNlzFw6evPE",
+  "tags": []
+}
