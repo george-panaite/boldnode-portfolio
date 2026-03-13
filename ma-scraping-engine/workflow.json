@@ -1,0 +1,1050 @@
+{
+  "name": "Fusion Consulting - M&A Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"sentiment\": \"Positief\",\n  \"category\": \"Support\",\n  \"churn_risk\": 2,\n  \"summary\": \"Korte samenvatting van de review in het Nederlands.\",\n  \"action_needed\": \"Nee\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        832,
+        -16
+      ],
+      "id": "5044502f-47f9-460f-84f7-7a1c146b249d",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -256,
+        -784
+      ],
+      "id": "67e0de29-87de-4502-bea0-36071d1a228a",
+      "name": "Input: Bedrijfsnaam",
+      "webhookId": "7e830b9d-67ac-439c-89f0-162858fb7051",
+      "notes": "Ontvangt de naam van het te onderzoeken bedrijf via de n8n chat interface."
+    },
+    {
+      "parameters": {
+        "q": "={{ $('Input: Bedrijfsnaam').item.json.chatInput }} reviews site:trustpilot.com OR site:g2.com",
+        "additionalFields": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApi",
+      "typeVersion": 1,
+      "position": [
+        64,
+        -784
+      ],
+      "id": "143d8f95-e08d-498d-b231-07108f20d2f5",
+      "name": "Zoek Review Profielen",
+      "credentials": {
+        "serpApi": {
+          "id": "Q0giSqTWIHRiZyAC",
+          "name": "SerpApi account"
+        }
+      },
+      "notes": "Zoekt via Google (SerpApi) naar de officiële Trustpilot en G2 pagina's van het opgegeven bedrijf.\n"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Je bent een intelligente data router voor een M&A workflow. Analyseer de Google zoekresultaten.\nKies de beste, officiële review-pagina voor het gezochte bedrijf op Trustpilot en G2.\n\nKEIHARDE REGELS:\n1. Kies MAXIMAAL 1 Trustpilot URL en MAXIMAAL 1 G2 URL.\n2. Controleer goed of het echt om het gezochte bedrijf gaat (negeer concurrenten zoals Visma of Exact als er op AFAS wordt gezocht).\n3. Vermijd links met \"?page=\" of subdomeinen zoals \"nl-be\" als de hoofdlink beschikbaar is.\n4. G2 URLS MOETEN dit format hebben: https://www.g2.com/products/<bedrijfsnaam>/reviews. (Herschrijf /sellers/ links naar /products/ links).\n\nGeef uitsluitend een JSON object terug (geen markdown text). \nFormaat:\n{\n  \"platforms\":[\n    {\"platform\": \"trustpilot\", \"url\": \"exacte_url\"},\n    {\"platform\": \"g2\", \"url\": \"exacte_url\"}\n  ]\n}"
+            },
+            {
+              "content": "=Hier zijn de Google resultaten voor het gezochte bedrijf: {{ JSON.stringify($json.organic_results) }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        640,
+        -784
+      ],
+      "id": "06116aea-9db5-4dfb-8c6f-8a703b36f08e",
+      "name": "Selecteer Juiste URL's (AI)",
+      "credentials": {
+        "openAiApi": {
+          "id": "RfG4k28yYG0T5NQr",
+          "name": "OpenAi account"
+        }
+      },
+      "notes": "Filtert de Google-resultaten, verwijdert irrelevante links/concurrenten en formatteert de juiste URL's in JSON."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d8fb73ab-4ff7-45ca-8710-d5e53c408c43",
+              "name": "platforms",
+              "value": "={{ JSON.parse($json.output[0].content[0].text.replace(/```json/gi, '').replace(/```/gi, '').trim()).platforms }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1312,
+        -784
+      ],
+      "id": "a493f7c5-051e-4e4e-863e-8eddb4218d6e",
+      "name": "Parse JSON Output",
+      "notes": "Zet de tekst-output van de AI om naar een leesbare datalijst (Array)."
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "platforms",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1936,
+        -784
+      ],
+      "id": "f95da735-2d6f-4e24-a87e-169c7f933ac0",
+      "name": "Splits per Platform",
+      "notes": "Knipt de lijst met gevonden URL's op zodat ze apart gerouteerd kunnen worden."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.platform.toLowerCase() }}",
+                    "rightValue": "trustpilot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "8c8285d3-4590-4c77-a777-af822c250665"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Trustpilot"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9d666eca-1908-49dc-9b1b-95509eda73e7",
+                    "leftValue": "={{ $json.platform.toLowerCase() }}",
+                    "rightValue": "g2",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "G2"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -256,
+        -304
+      ],
+      "id": "875fab52-2466-4014-85c6-ee17f320a09f",
+      "name": "Routing naar Scraper",
+      "notes": "Stuurt de URL door naar de specifieke scraper op basis van het platform (Trustpilot of G2)."
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "l3wcDhSSC96LBRUpc",
+          "mode": "list",
+          "cachedResultName": "Trustpilot reviews scraper (casper11515/trustpilot-reviews-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/l3wcDhSSC96LBRUpc/input"
+        },
+        "customBody": "={{ JSON.stringify({\n    \"Proxy configuration\": {\n        \"useApifyProxy\": false\n    },\n    \"companyWebsite\": $('Input: Bedrijfsnaam').item.json.chatInput.replace(/^(?:https?:\\/\\/)?(?:www\\.)?/i, \"\").split('/')[0],\n    \"contentToExtract\": \"companyInformationAndReviews\",\n    \"filterByVerified\": false\n}) }}",
+        "timeout": {}
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        32,
+        -416
+      ],
+      "id": "fb3c3a1a-2356-43af-8b66-351300997ed9",
+      "name": "Scrape Trustpilot Reviews",
+      "credentials": {
+        "apifyApi": {
+          "id": "x3eFq70IKrJPuZmQ",
+          "name": "Mijn Apify API"
+        }
+      },
+      "notes": "Haalt de 10 meest recente reviews op. Parameter: filterByVerified is optioneel aan te zetten."
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "XQAkoDssJyWZmyR0W",
+          "mode": "list",
+          "cachedResultName": "G2.com Real-Time Reviews Scraper (2026) (zen-studio/g2-reviews-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/XQAkoDssJyWZmyR0W/input"
+        },
+        "customBody": "={{ JSON.stringify({\n    \"includeProsConsSummary\": true,\n    \"limit\": 10,\n    \"sortOrder\": \"most_recent\",\n    \"url\": $json.url\n}) }}",
+        "timeout": {}
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        32,
+        -176
+      ],
+      "id": "6a472cea-aa13-4957-a623-d49a5fb9bebe",
+      "name": "Scrape G2 Reviews",
+      "credentials": {
+        "apifyApi": {
+          "id": "x3eFq70IKrJPuZmQ",
+          "name": "Mijn Apify API"
+        }
+      },
+      "notes": "Haalt de 10 meest recente reviews op. Parameter: filterByVerified is optioneel aan te zetten."
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        320,
+        -304
+      ],
+      "id": "717b6cfb-fd4e-478e-af19-c6590c11721e",
+      "name": "Samenvoegen Data",
+      "notes": "Wacht tot alle scrapers klaar zijn en bundelt de reviews tot één uniforme dataset."
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Hier is de ruwe review data van het platform: \n{{ JSON.stringify($json) }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Je bent een M&A Business Analist. Je analyseert klantreviews van softwarebedrijven.\nAnalyseer de review en geef ALTIJD antwoord in dit strikte JSON formaat:\n{\n  \"sentiment\": \"Positive\" | \"Neutral\" | \"Negative\",\n  \"category\": \"Support\" | \"Pricing\" | \"Bugs & Stability\" | \"Features\" | \"Usability\",\n  \"churn_risk\": <getal van 1 tot 5, waarbij 1 heel veilig is en 5 betekent dat de klant direct wil opzeggen>,\n  \"summary\": \"<Max 10 woorden samenvatting in het Nederlands>\",\n  \"action_needed\": \"Yes\" | \"No\" <Kies Ja als churn_risk 4 of 5 is>\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        640,
+        -304
+      ],
+      "id": "36749f1f-d9c4-4c74-bb95-ef7e1a326c9a",
+      "name": "Analyseer Review (Risico & Sentiment)",
+      "notes": "Beoordeelt elke individuele review op categorie, sentiment en churn-risico (1-5) via een strikt JSON-schema."
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Fusion Advies - M&A Monitor",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_REVIEWS_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Reviews",
+          "cachedResultUrl": "https://airtable.com/YOUR_AIRTABLE_BASE_ID/YOUR_AIRTABLE_REVIEWS_TABLE_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Company": "={{ $('Input: Bedrijfsnaam').item.json.chatInput }}",
+            "Sentiment": "={{ $json.output.sentiment }}",
+            "Category": "={{ $json.output.category }}",
+            "Churn Risk": "={{ $json.output.churn_risk }}",
+            "Summary": "={{ $json.output.summary }}",
+            "Action Needed": "={{ $json.output.action_needed }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Sentiment",
+              "displayName": "Sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Positive",
+                  "value": "Positive"
+                },
+                {
+                  "name": "Negative",
+                  "value": "Negative"
+                },
+                {
+                  "name": "Neutral",
+                  "value": "Neutral"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Support",
+                  "value": "Support"
+                },
+                {
+                  "name": "Pricing",
+                  "value": "Pricing"
+                },
+                {
+                  "name": "Bugs & Stability",
+                  "value": "Bugs & Stability"
+                },
+                {
+                  "name": "Features",
+                  "value": "Features"
+                },
+                {
+                  "name": "Usability",
+                  "value": "Usability"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Churn Risk",
+              "displayName": "Churn Risk",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Action Needed",
+              "displayName": "Action Needed",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Yes",
+                  "value": "Yes"
+                },
+                {
+                  "name": "No",
+                  "value": "No"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        992,
+        -304
+      ],
+      "id": "f0681996-6235-48ae-8824-43d5b5f126fd",
+      "name": "Sla op in Database",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "0ymdfpXXdG3JLR2n",
+          "name": "Airtable Personal Access Token account"
+        }
+      },
+      "notes": "Archiveert de geanalyseerde review in de M&A Due Diligence tabel op Airtable."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "780a7832-f029-42f1-9eca-6f607ccd3a03",
+              "leftValue": "={{ $json.fields['Action Needed'] }}",
+              "rightValue": "Yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1280,
+        -464
+      ],
+      "id": "655bd11a-6103-401d-b12d-4c4a4d2f0b03",
+      "name": "Filter: Actie Vereist?",
+      "notes": "Laat uitsluitend reviews door met een hoog churn-risico (score 4 of 5)."
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        -464
+      ],
+      "id": "567bac4b-a3a4-4bef-a6de-a53989f65276",
+      "name": "Verzamel Risico's",
+      "notes": "Bundelt alle losse hoog-risico meldingen van deze sessie tot één overzicht."
+    },
+    {
+      "parameters": {
+        "jsCode": "// We halen de gebundelde koffer met negatieve reviews op\nconst reviews = $input.first().json.data;\n\n// Als er 0 reviews zijn, stoppen we de workflow voor dit spoor\nif (!reviews || reviews.length === 0) {\n  return[];\n}\n\n// We gaan het bericht bouwen. We pakken de bedrijfsnaam uit de allereerste review\nconst companyName = reviews[0].fields.Company;\nlet slackMessage = `🚨 *M&A Monitor: Kritieke Risico's Gevonden* 🚨\\n`;\nslackMessage += `Tijdens de analyse van *${companyName}* zijn ${reviews.length} reviews gevonden met een extreem hoog churn-risico.\\n\\n*Details van de risico's:*\\n`;\n\n// We loopen door alle reviews en maken er bulletpoints van\nreviews.forEach((review, index) => {\n  slackMessage += `\\n*${index + 1}. Categorie:* ${review.fields.Category} (Risico: ${review.fields['Churn Risk']}/5)\\n`;\n  slackMessage += `> _\"${review.fields.Summary}\"_\\n`;\n});\n\nslackMessage += `\\n⚠️ _Deze punten vereisen directe aandacht vanuit Operations / Support._`;\n\n// We sturen het kant-en-klare bericht door naar Slack\nreturn {\n  json: {\n    slackText: slackMessage\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        -464
+      ],
+      "id": "fc565680-b6ff-4a77-ae28-6471fabb0fd0",
+      "name": "Formatteer Waarschuwing",
+      "notes": "Zet de ruwe data om naar een leesbaar Slack-bericht met bulletpoints.\n"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID_OPERATIONS",
+          "mode": "list",
+          "cachedResultName": "merger_alerts"
+        },
+        "text": "={{ $json.slackText }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1936,
+        -464
+      ],
+      "id": "0e6d0dec-e77e-4e0b-b650-1e33ec06150a",
+      "name": "Verstuur Waarschuwing (Slack)",
+      "webhookId": "db582e59-8ecb-4fdd-abfc-a56bc56eb44e",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "GQBPu11Dn70U6Fe9",
+          "name": "Slack account"
+        }
+      },
+      "notes": "Pusht het gebundelde alert-bericht naar het kanaal #merger_alerts."
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        -240
+      ],
+      "id": "bc7ba398-2891-41db-8bdc-2e31f099a45e",
+      "name": "Verzamel Alle Reviews",
+      "notes": "Bundelt álle reviews (zowel positief als negatief) van de sessie voor de eindrapportage."
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Hier is de data:\n{{ JSON.stringify($json.data) }}"
+            },
+            {
+              "role": "system",
+              "content": "Je bent een Senior M&A Adviseur en Due Diligence expert voor Fusion Consulting.\nIk geef je hieronder een JSON-dataset van geanalyseerde klantreviews van een softwarebedrijf dat we mogelijk willen overnemen.\n\nSchrijf een scherp, professioneel strategisch adviesrapport (maximaal 400 woorden).\n**\"Belangrijk voor de opmaak: Gebruik GEEN Markdown (dus géén hekjes # of asterisken ). Gebruik in plaats daarvan VOLLEDIGE HOOFDLETTERS voor de titels (bijv. 1. EXECUTIVE SUMMARY). Gebruik normale streepjes (-) voor opsommingen en gebruik overzichtelijke witregels tussen de alinea's.\"\n\nBehandel in ieder geval deze 3 punten:\n1. Executive Summary: Wat is het algemene sentiment van de klanten?\n2. Risico Analyse: Waar zitten de grootste \"Churn Risks\" (bijv. support, bugs, prijzen)?\n3. Post-Merger Advies: Wat moet het integratieteam van Fusion Consulting op Dag 1 direct aanpakken om weglopende klanten te voorkomen?"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1536,
+        -240
+      ],
+      "id": "fcda3a70-7ce7-4a88-9616-3667ae70b71d",
+      "name": "Schrijf M&A Rapport (AI)",
+      "credentials": {
+        "openAiApi": {
+          "id": "RfG4k28yYG0T5NQr",
+          "name": "OpenAi account"
+        }
+      },
+      "notes": "Genereert een strategisch adviesrapport (max 400 woorden) inclusief executive summary en post-merger advies.\n"
+    },
+    {
+      "parameters": {
+        "folderId": "1Ddo0utNRwLh5uaaXFTCUEPgAckTlIkLA",
+        "title": "=M&A Due Diligence Rapport - {{ $('Input: Bedrijfsnaam').item.json.chatInput }} - {{$now.format('dd-MM-yyyy')}}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        -240
+      ],
+      "id": "a803317b-0bdc-4494-a46f-063a479c19c5",
+      "name": "Maak Leeg Document (Google Docs)",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "mohK4gX1Fqm7twC1",
+          "name": "testomgeving google doc"
+        }
+      },
+      "notes": "Creëert een nieuw Google Document met dynamische titel (Bedrijfsnaam + Datum)."
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.id }}",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "={{ $('Schrijf M&A Rapport (AI)').item.json.output[0].content[0].text }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        16
+      ],
+      "id": "926f764e-ba4f-4461-9496-c1d31daca813",
+      "name": "Schijf Rapport",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "mohK4gX1Fqm7twC1",
+          "name": "testomgeving google doc"
+        }
+      },
+      "notes": "Plakt de door AI geschreven tekst in het zojuist aangemaakte document."
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID_REPORTS",
+          "mode": "list",
+          "cachedResultName": "business_report"
+        },
+        "text": "=📄 *Nieuw M&A Due Diligence Rapport Beschikbaar* 📄 _De AI heeft alle 20 reviews van de target geanalyseerd en een strategisch adviesrapport geschreven._  👉 *Bekijk het document hier:*  https://docs.google.com/document/d/{{ $('Maak Leeg Document (Google Docs)').item.json.id }}/edit",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1616,
+        16
+      ],
+      "id": "b1184e5d-254e-4129-bafb-d3d924680d04",
+      "name": "Deel Rapportage (Slack)",
+      "webhookId": "7685f380-0e46-4935-ade1-e998437470aa",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "GQBPu11Dn70U6Fe9",
+          "name": "Slack account"
+        }
+      },
+      "notes": "Verstuurt een notificatie met de directe Google Docs URL naar het managementkanaal."
+    },
+    {
+      "parameters": {
+        "message": "=✅ De analyse voor het bedrijf is voltooid! \nHet strategische M&A rapport is succesvol gegenereerd.\n\n👉 Bekijk het hier: https://docs.google.com/document/d/{{ $('Maak Leeg Document (Google Docs)').item.json.id }}/edit",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.2,
+      "position": [
+        1936,
+        16
+      ],
+      "id": "0f059806-782a-4ed0-8ea9-2dd594e1870b",
+      "name": "Bevestiging naar Gebruiker",
+      "webhookId": "8c9f2630-4cfc-41f7-b8ea-777f90881102",
+      "notes": "Toont een succes-bericht en de rapport-link terug in de n8n chat-interface."
+    },
+    {
+      "parameters": {
+        "content": "## Fase 1: Geautomatiseerde Verkenning (Google Search & AI Routing)\"\n",
+        "height": 240,
+        "width": 2416,
+        "color": "#383838"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        -864
+      ],
+      "id": "0fbc4378-9268-4b3b-8987-32e486d4ecbf",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Fase 2: Parallelle Data Extractie (Asynchroon)\n",
+        "height": 784,
+        "width": 864,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        -592
+      ],
+      "id": "bc05fdba-0e8a-49f5-a4c6-fcefe107d733",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Fase 3: Sentiment Analyse & Database Logging",
+        "height": 784,
+        "width": 576,
+        "color": "#504807"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        576,
+        -592
+      ],
+      "id": "b9f24db7-0c98-401c-9430-fcac51d65e8f",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        640,
+        -16
+      ],
+      "id": "4faee07d-ab0f-484b-a495-9a30a4853f05",
+      "name": "GPT-4o-mini",
+      "credentials": {
+        "openAiApi": {
+          "id": "RfG4k28yYG0T5NQr",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Fase 4: Distributie van Inzichten (Management Rapportage & Noodmeldingen)",
+        "height": 784,
+        "width": 944,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        -592
+      ],
+      "id": "1bc146c3-cb79-4414-9dc8-872b52349cf2",
+      "name": "Sticky Note3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyseer Review (Risico & Sentiment)",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input: Bedrijfsnaam": {
+      "main": [
+        [
+          {
+            "node": "Zoek Review Profielen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoek Review Profielen": {
+      "main": [
+        [
+          {
+            "node": "Selecteer Juiste URL's (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selecteer Juiste URL's (AI)": {
+      "main": [
+        [
+          {
+            "node": "Parse JSON Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse JSON Output": {
+      "main": [
+        [
+          {
+            "node": "Splits per Platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Splits per Platform": {
+      "main": [
+        [
+          {
+            "node": "Routing naar Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Routing naar Scraper": {
+      "main": [
+        [
+          {
+            "node": "Scrape Trustpilot Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scrape G2 Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Trustpilot Reviews": {
+      "main": [
+        [
+          {
+            "node": "Samenvoegen Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape G2 Reviews": {
+      "main": [
+        [
+          {
+            "node": "Samenvoegen Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Samenvoegen Data": {
+      "main": [
+        [
+          {
+            "node": "Analyseer Review (Risico & Sentiment)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyseer Review (Risico & Sentiment)": {
+      "main": [
+        [
+          {
+            "node": "Sla op in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sla op in Database": {
+      "main": [
+        [
+          {
+            "node": "Verzamel Alle Reviews",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter: Actie Vereist?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: Actie Vereist?": {
+      "main": [
+        [
+          {
+            "node": "Verzamel Risico's",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verzamel Risico's": {
+      "main": [
+        [
+          {
+            "node": "Formatteer Waarschuwing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatteer Waarschuwing": {
+      "main": [
+        [
+          {
+            "node": "Verstuur Waarschuwing (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verzamel Alle Reviews": {
+      "main": [
+        [
+          {
+            "node": "Schrijf M&A Rapport (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schrijf M&A Rapport (AI)": {
+      "main": [
+        [
+          {
+            "node": "Maak Leeg Document (Google Docs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Maak Leeg Document (Google Docs)": {
+      "main": [
+        [
+          {
+            "node": "Schijf Rapport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schijf Rapport": {
+      "main": [
+        [
+          {
+            "node": "Deel Rapportage (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deel Rapportage (Slack)": {
+      "main": [
+        [
+          {
+            "node": "Bevestiging naar Gebruiker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT-4o-mini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyseer Review (Risico & Sentiment)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "324128ac-fbd3-4f9c-8adf-11df7f30c024",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "id": "fuF78fm864SQ0ZMGeyeS5",
+  "tags": []
+}
